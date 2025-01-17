@@ -15,10 +15,10 @@ import (
 	"unicode"
 )
 
-// BindKey indicates a default bind key.
+// BindKey 表示一个默认的绑定键。
 const BindKey = "_gin-gonic/gin/bindkey"
 
-// Bind is a helper function for given interface object and returns a Gin middleware.
+// Bind 是一个辅助函数，用于给定的接口对象并返回一个 Gin 中间件。
 func Bind(val any) HandlerFunc {
 	value := reflect.ValueOf(val)
 	if value.Kind() == reflect.Ptr {
@@ -36,24 +36,24 @@ func Bind(val any) HandlerFunc {
 	}
 }
 
-// WrapF is a helper function for wrapping http.HandlerFunc and returns a Gin middleware.
+// WrapF 是一个辅助函数，用于包装 http.HandlerFunc 并返回一个 Gin 中间件。
 func WrapF(f http.HandlerFunc) HandlerFunc {
 	return func(c *Context) {
 		f(c.Writer, c.Request)
 	}
 }
 
-// WrapH is a helper function for wrapping http.Handler and returns a Gin middleware.
+// WrapH 是一个辅助函数，用于包装 http.Handler 并返回一个 Gin 中间件。
 func WrapH(h http.Handler) HandlerFunc {
 	return func(c *Context) {
 		h.ServeHTTP(c.Writer, c.Request)
 	}
 }
 
-// H is a shortcut for map[string]any
+// H 是 map[string]any 的简写
 type H map[string]any
 
-// MarshalXML allows type H to be used with xml.Marshal.
+// MarshalXML 允许类型 H 与 xml.Marshal 一起使用。
 func (h H) MarshalXML(e *xml.Encoder, start xml.StartElement) error {
 	start.Name = xml.Name{
 		Space: "",
@@ -75,6 +75,7 @@ func (h H) MarshalXML(e *xml.Encoder, start xml.StartElement) error {
 	return e.EncodeToken(xml.EndElement{Name: start.Name})
 }
 
+// assert1 如果条件不成立，就会panic。
 func assert1(guard bool, text string) {
 	if !guard {
 		panic(text)

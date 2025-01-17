@@ -15,16 +15,16 @@ import (
 
 const ginSupportMinGoVer = 21
 
-// IsDebugging returns true if the framework is running in debug mode.
-// Use SetMode(gin.ReleaseMode) to disable debug mode.
+// IsDebugging 如果框架运行在调试模式下返回true。
+// 使用SetMode(gin.ReleaseMode)来禁用调试模式。
 func IsDebugging() bool {
 	return atomic.LoadInt32(&ginMode) == debugCode
 }
 
-// DebugPrintRouteFunc indicates debug log output format.
+// DebugPrintRouteFunc 指示调试日志的输出格式。
 var DebugPrintRouteFunc func(httpMethod, absolutePath, handlerName string, nuHandlers int)
 
-// DebugPrintFunc indicates debug log output format.
+// DebugPrintFunc 指示调试日志的输出格式。
 var DebugPrintFunc func(format string, values ...interface{})
 
 func debugPrintRoute(httpMethod, absolutePath string, handlers HandlersChain) {

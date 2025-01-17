@@ -122,6 +122,7 @@ func lastChar(str string) uint8 {
 	return str[len(str)-1]
 }
 
+// nameOfFunction 返回函数名
 func nameOfFunction(f any) string {
 	return runtime.FuncForPC(reflect.ValueOf(f).Pointer()).Name()
 }

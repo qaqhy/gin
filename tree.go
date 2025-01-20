@@ -74,7 +74,7 @@ func longestCommonPrefix(a, b string) int {
 	return i
 }
 
-// addChild will add a child node, keeping wildcardChild at the end
+// addChild 将添加一个子节点，并将通配符子节点保持在最后
 func (n *node) addChild(child *node) {
 	if n.wildChild && len(n.children) > 0 {
 		wildcardChild := n.children[len(n.children)-1]
@@ -259,6 +259,18 @@ walk:
 
 // findWildcard 查找一个通配符片段并检查名称中是否有无效字符。
 // 如果没有找到通配符，则返回 -1 作为索引。
+//  1. path:[/a/b/c]
+//     => wildcard:[], i:[-1], valid:[false]
+//  2. path:[/a/b/:c]
+//     => wildcard:[:c], i:[5], valid:[true]
+//  3. path:[/a/:b/:c]
+//     => wildcard:[:b], i:[3], valid:[true]
+//  4. path:[/a/:*/:c] 或 [/a/:*/c] 或 [/a/:*]
+//     => wildcard:[:*], i:[3], valid:[false]
+//  5. path:[/a/*/:c] 或 [/a/*/c] 或 [/a/*]
+//     => wildcard:[*], i:[3], valid:[true]
+//  6. path:[/a/b\\c] 或 [/a/\\c] 或 [\\a]
+//     => panic:[/a/b\c] 或 [/a/\c] 或 [\a]
 func findWildcard(path string) (wildcard string, i int, valid bool) {
 	// 查找开始位置
 	escapeColon := false

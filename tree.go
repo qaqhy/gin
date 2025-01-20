@@ -265,11 +265,13 @@ walk:
 //     => wildcard:[:c], i:[5], valid:[true]
 //  3. path:[/a/:b/:c]
 //     => wildcard:[:b], i:[3], valid:[true]
-//  4. path:[/a/:*/:c] 或 [/a/:*/c] 或 [/a/:*]
+//  4. path:[/a/b*c]
+//     => wildcard:[*c], i:[4], valid:[true]
+//  5. path:[/a/:*/:c] 或 [/a/:*/c] 或 [/a/:*]
 //     => wildcard:[:*], i:[3], valid:[false]
-//  5. path:[/a/*/:c] 或 [/a/*/c] 或 [/a/*]
+//  6. path:[/a/*/:c] 或 [/a/*/c] 或 [/a/*]
 //     => wildcard:[*], i:[3], valid:[true]
-//  6. path:[/a/b\\c] 或 [/a/\\c] 或 [\\a]
+//  7. path:[/a/b\\c] 或 [/a/\\c] 或 [\\a]
 //     => panic:[/a/b\c] 或 [/a/\c] 或 [\a]
 func findWildcard(path string) (wildcard string, i int, valid bool) {
 	// 查找开始位置
@@ -379,7 +381,7 @@ func (n *node) insertChild(path string, fullPath string, handlers HandlersChain)
 
 		// 目前固定宽度为 1 的 '/'
 		i--
-		if i < 0 || path[i] != '/' {
+		if i < 0 || path[i] != '/' { // /a*b的路由报错
 			panic("no / before catch-all in path '" + fullPath + "'")
 		}
 

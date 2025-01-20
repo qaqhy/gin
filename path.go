@@ -5,37 +5,34 @@
 
 package gin
 
-// cleanPath is the URL version of path.Clean, it returns a canonical URL path
-// for p, eliminating . and .. elements.
+// cleanPath 是 URL 版本的 path.Clean，它返回 p 的规范化 URL 路径，消除 . 和 .. 元素。
 //
-// The following rules are applied iteratively until no further processing can
-// be done:
-//  1. Replace multiple slashes with a single slash.
-//  2. Eliminate each . path name element (the current directory).
-//  3. Eliminate each inner .. path name element (the parent directory)
-//     along with the non-.. element that precedes it.
-//  4. Eliminate .. elements that begin a rooted path:
-//     that is, replace "/.." by "/" at the beginning of a path.
+// 以下规则会迭代应用，直到无法进一步处理：
+//  1. 用单个斜杠替换多个斜杠。
+//  2. 消除每个 . 路径名元素（当前目录）。
+//  3. 消除每个内部的 .. 路径名元素（父目录）及其前面的非 .. 元素。
+//  4. 消除以 .. 开头的根路径元素：
+//     也就是说，在路径的开头将 "/.." 替换为 "/"。
 //
-// If the result of this process is an empty string, "/" is returned.
+// 如果处理的结果是一个空字符串，将返回 "/"。
 func cleanPath(p string) string {
 	const stackBufSize = 128
-	// Turn empty string into "/"
+	// 将空字符串转换为 "/"
 	if p == "" {
 		return "/"
 	}
 
-	// Reasonably sized buffer on stack to avoid allocations in the common case.
-	// If a larger buffer is required, it gets allocated dynamically.
+	// 在堆栈上创建合理大小的缓冲区，以避免在常见情况下的分配。
+	// 如果需要更大的缓冲区，则会动态分配。
 	buf := make([]byte, 0, stackBufSize)
 
 	n := len(p)
 
-	// Invariants:
-	//      reading from path; r is index of next byte to process.
-	//      writing to buf; w is index of next byte to write.
+	// 不变量：
+	//      从路径读取；r 是下一个要处理的字节的索引。
+	//      向缓冲区写入；w 是下一个要写入的字节的索引。
 
-	// path must start with '/'
+	// 路径必须以 '/' 开头
 	r := 1
 	w := 1
 
@@ -52,15 +49,12 @@ func cleanPath(p string) string {
 
 	trailing := n > 1 && p[n-1] == '/'
 
-	// A bit more clunky without a 'lazybuf' like the path package, but the loop
-	// gets completely inlined (bufApp calls).
-	// loop has no expensive function calls (except 1x make)		// So in contrast to the path package this loop has no expensive function
-	// calls (except make, if needed).
-
+	// 没有 'lazybuf' 的情况下有点笨拙，但循环完全内联（bufApp 调用）。
+	// 循环没有昂贵的函数调用（除了一次 make 调用）。
 	for r < n {
 		switch {
 		case p[r] == '/':
-			// empty path element, trailing slash is added after the end
+			// 空路径元素，尾随斜杠在末尾添加
 			r++
 
 		case p[r] == '.' && r+1 == n:
@@ -68,15 +62,15 @@ func cleanPath(p string) string {
 			r++
 
 		case p[r] == '.' && p[r+1] == '/':
-			// . element
+			// . 元素
 			r += 2
 
 		case p[r] == '.' && p[r+1] == '.' && (r+2 == n || p[r+2] == '/'):
-			// .. element: remove to last /
+			// .. 元素：移除到上一个 /
 			r += 3
 
 			if w > 1 {
-				// can backtrack
+				// 可以回溯
 				w--
 
 				if len(buf) == 0 {
@@ -91,14 +85,14 @@ func cleanPath(p string) string {
 			}
 
 		default:
-			// Real path element.
-			// Add slash if needed
+			// 实际路径元素。
+			// 如果需要，添加斜杠
 			if w > 1 {
 				bufApp(&buf, p, w, '/')
 				w++
 			}
 
-			// Copy element
+			// 复制元素
 			for r < n && p[r] != '/' {
 				bufApp(&buf, p, w, p[r])
 				w++
@@ -107,35 +101,33 @@ func cleanPath(p string) string {
 		}
 	}
 
-	// Re-append trailing slash
+	// 重新添加尾随斜杠
 	if trailing && w > 1 {
 		bufApp(&buf, p, w, '/')
 		w++
 	}
 
-	// If the original string was not modified (or only shortened at the end),
-	// return the respective substring of the original string.
-	// Otherwise return a new string from the buffer.
+	// 如果原始字符串没有被修改（或只是在末尾缩短），
+	// 返回原始字符串的相应子字符串。
+	// 否则，从缓冲区返回一个新字符串。
 	if len(buf) == 0 {
 		return p[:w]
 	}
 	return string(buf[:w])
 }
 
-// Internal helper to lazily create a buffer if necessary.
-// Calls to this function get inlined.
+// 内部辅助函数，在必要时懒惰地创建缓冲区。
+// 对此函数的调用会被内联。
 func bufApp(buf *[]byte, s string, w int, c byte) {
 	b := *buf
 	if len(b) == 0 {
-		// No modification of the original string so far.
-		// If the next character is the same as in the original string, we do
-		// not yet have to allocate a buffer.
+		// 到目前为止没有修改原始字符串。
+		// 如果下一个字符与原始字符串中的字符相同，我们还不需要分配缓冲区。
 		if s[w] == c {
 			return
 		}
 
-		// Otherwise use either the stack buffer, if it is large enough, or
-		// allocate a new buffer on the heap, and copy all previous characters.
+		// 否则，使用堆栈缓冲区（如果它足够大），或者在堆上分配一个新缓冲区，并复制所有以前的字符。
 		length := len(s)
 		if length > cap(b) {
 			*buf = make([]byte, length)

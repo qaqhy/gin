@@ -628,41 +628,42 @@ func (engine *Engine) HandleContext(c *Context) {
 	c.index = oldIndexValue
 }
 
+// handleHTTPRequest 处理HTTP请求
 func (engine *Engine) handleHTTPRequest(c *Context) {
-	httpMethod := c.Request.Method
-	rPath := c.Request.URL.Path
+	httpMethod := c.Request.Method // 获取请求方法
+	rPath := c.Request.URL.Path    // 获取请求路径
 	unescape := false
 	if engine.UseRawPath && len(c.Request.URL.RawPath) > 0 {
-		rPath = c.Request.URL.RawPath
-		unescape = engine.UnescapePathValues
+		rPath = c.Request.URL.RawPath        // 使用原始路径
+		unescape = engine.UnescapePathValues // 是否需要解码路径值
 	}
 
 	if engine.RemoveExtraSlash {
-		rPath = cleanPath(rPath)
+		rPath = cleanPath(rPath) // 清理路径中的多余斜杠
 	}
 
-	// Find root of the tree for the given HTTP method
+	// 找到给定HTTP方法的树的根节点
 	t := engine.trees
 	for i, tl := 0, len(t); i < tl; i++ {
 		if t[i].method != httpMethod {
 			continue
 		}
 		root := t[i].root
-		// Find route in tree
+		// 在树中找到路由
 		value := root.getValue(rPath, c.params, c.skippedNodes, unescape)
 		if value.params != nil {
-			c.Params = *value.params
+			c.Params = *value.params // 设置请求参数
 		}
 		if value.handlers != nil {
-			c.handlers = value.handlers
-			c.fullPath = value.fullPath
-			c.Next()
-			c.writermem.WriteHeaderNow()
+			c.handlers = value.handlers  // 设置处理函数
+			c.fullPath = value.fullPath  // 设置完整路径
+			c.Next()                     // 执行下一个处理函数
+			c.writermem.WriteHeaderNow() // 立即写入响应头
 			return
 		}
 		if httpMethod != http.MethodConnect && rPath != "/" {
 			if value.tsr && engine.RedirectTrailingSlash {
-				redirectTrailingSlash(c)
+				redirectTrailingSlash(c) // 重定向到带斜杠的路径
 				return
 			}
 			if engine.RedirectFixedPath && redirectFixedPath(c, root, engine.RedirectFixedPath) {
@@ -673,8 +674,8 @@ func (engine *Engine) handleHTTPRequest(c *Context) {
 	}
 
 	if engine.HandleMethodNotAllowed && len(t) > 0 {
-		// According to RFC 7231 section 6.5.5, MUST generate an Allow header field in response
-		// containing a list of the target resource's currently supported methods.
+		// 根据RFC 7231第6.5.5节，必须在响应中生成Allow头字段
+		// 该字段包含目标资源当前支持的方法列表。
 		allowed := make([]string, 0, len(t)-1)
 		for _, tree := range engine.trees {
 			if tree.method == httpMethod {
@@ -685,15 +686,15 @@ func (engine *Engine) handleHTTPRequest(c *Context) {
 			}
 		}
 		if len(allowed) > 0 {
-			c.handlers = engine.allNoMethod
-			c.writermem.Header().Set("Allow", strings.Join(allowed, ", "))
-			serveError(c, http.StatusMethodNotAllowed, default405Body)
+			c.handlers = engine.allNoMethod                                // 设置处理方法不允许的处理函数
+			c.writermem.Header().Set("Allow", strings.Join(allowed, ", ")) // 设置Allow头字段
+			serveError(c, http.StatusMethodNotAllowed, default405Body)     // 返回405错误
 			return
 		}
 	}
 
-	c.handlers = engine.allNoRoute
-	serveError(c, http.StatusNotFound, default404Body)
+	c.handlers = engine.allNoRoute                     // 设置处理路由不匹配的处理函数
+	serveError(c, http.StatusNotFound, default404Body) // 返回404错误
 }
 
 var mimePlain = []string{MIMEPlain}

@@ -13,27 +13,31 @@ import (
 	"github.com/gin-gonic/gin/internal/bytesconv"
 )
 
-// AuthUserKey is the cookie name for user credential in basic auth.
+// AuthUserKey 是基本认证中用于用户凭证的 cookie 名称。
 const AuthUserKey = "user"
 
-// AuthProxyUserKey is the cookie name for proxy_user credential in basic auth for proxy.
+// AuthProxyUserKey 是代理基本认证中用于 proxy_user 凭证的 cookie 名称。
 const AuthProxyUserKey = "proxy_user"
 
-// Accounts defines a key/value for user/pass list of authorized logins.
+// Accounts 定义了一个键值对，用于存储授权登录的用户名和密码。
 type Accounts map[string]string
 
+// authPair 结构体包含了一个认证值和用户名。
 type authPair struct {
 	value string
 	user  string
 }
 
+// authPairs 是 authPair 的切片。
 type authPairs []authPair
 
+// searchCredential 方法在 authPairs 中搜索匹配的凭证。
 func (a authPairs) searchCredential(authValue string) (string, bool) {
 	if authValue == "" {
 		return "", false
 	}
 	for _, pair := range a {
+		// 使用恒定时间比较函数比较认证值
 		if subtle.ConstantTimeCompare(bytesconv.StringToBytes(pair.value), bytesconv.StringToBytes(authValue)) == 1 {
 			return pair.user, true
 		}
@@ -41,10 +45,10 @@ func (a authPairs) searchCredential(authValue string) (string, bool) {
 	return "", false
 }
 
-// BasicAuthForRealm returns a Basic HTTP Authorization middleware. It takes as arguments a map[string]string where
-// the key is the user name and the value is the password, as well as the name of the Realm.
-// If the realm is empty, "Authorization Required" will be used by default.
-// (see http://tools.ietf.org/html/rfc2617#section-1.2)
+// BasicAuthForRealm 返回一个基本HTTP授权中间件。它接受一个 map[string]string 作为参数，
+// 其中键是用户名，值是密码，以及 Realm 的名称。
+// 如果 realm 为空，则默认使用 "Authorization Required"。
+// (参见 http://tools.ietf.org/html/rfc2617#section-1.2)
 func BasicAuthForRealm(accounts Accounts, realm string) HandlerFunc {
 	if realm == "" {
 		realm = "Authorization Required"
@@ -52,23 +56,22 @@ func BasicAuthForRealm(accounts Accounts, realm string) HandlerFunc {
 	realm = "Basic realm=" + strconv.Quote(realm)
 	pairs := processAccounts(accounts)
 	return func(c *Context) {
-		// Search user in the slice of allowed credentials
+		// 在允许的凭证列表中搜索用户
 		user, found := pairs.searchCredential(c.requestHeader("Authorization"))
 		if !found {
-			// Credentials doesn't match, we return 401 and abort handlers chain.
+			// 凭证不匹配，返回401状态码并中止处理链。
 			c.Header("WWW-Authenticate", realm)
 			c.AbortWithStatus(http.StatusUnauthorized)
 			return
 		}
 
-		// The user credentials was found, set user's id to key AuthUserKey in this context, the user's id can be read later using
-		// c.MustGet(gin.AuthUserKey).
+		// 找到用户凭证，将用户ID设置到上下文中的 AuthUserKey 键，稍后可以使用 c.MustGet(gin.AuthUserKey) 读取用户ID。
 		c.Set(AuthUserKey, user)
 	}
 }
 
-// BasicAuth returns a Basic HTTP Authorization middleware. It takes as argument a map[string]string where
-// the key is the user name and the value is the password.
+// BasicAuth 返回一个基本HTTP授权中间件。它接受一个 map[string]string 作为参数，
+// 其中键是用户名，值是密码。
 func BasicAuth(accounts Accounts) HandlerFunc {
 	return BasicAuthForRealm(accounts, "")
 }
@@ -93,8 +96,8 @@ func authorizationHeader(user, password string) string {
 	return "Basic " + base64.StdEncoding.EncodeToString(bytesconv.StringToBytes(base))
 }
 
-// BasicAuthForProxy returns a Basic HTTP Proxy-Authorization middleware.
-// If the realm is empty, "Proxy Authorization Required" will be used by default.
+// BasicAuthForProxy 返回一个基本 HTTP 代理授权中间件。
+// 如果 realm 为空，则默认使用 "Proxy Authorization Required"。
 func BasicAuthForProxy(accounts Accounts, realm string) HandlerFunc {
 	if realm == "" {
 		realm = "Proxy Authorization Required"
@@ -104,13 +107,13 @@ func BasicAuthForProxy(accounts Accounts, realm string) HandlerFunc {
 	return func(c *Context) {
 		proxyUser, found := pairs.searchCredential(c.requestHeader("Proxy-Authorization"))
 		if !found {
-			// Credentials doesn't match, we return 407 and abort handlers chain.
+			// 凭证不匹配，返回407状态码并中止处理链。
 			c.Header("Proxy-Authenticate", realm)
 			c.AbortWithStatus(http.StatusProxyAuthRequired)
 			return
 		}
-		// The proxy_user credentials was found, set proxy_user's id to key AuthProxyUserKey in this context, the proxy_user's id can be read later using
-		// c.MustGet(gin.AuthProxyUserKey).
+		// 找到 proxy_user 的凭证，将 proxy_user 的 ID 设置到上下文中的 AuthProxyUserKey 键，以后可以使用
+		// c.MustGet(gin.AuthProxyUserKey) 来读取 proxy_user 的 ID。
 		c.Set(AuthProxyUserKey, proxyUser)
 	}
 }

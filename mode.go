@@ -75,24 +75,24 @@ func SetMode(value string) {
 	modeName.Store(value)
 }
 
-// DisableBindValidation closes the default validator.
+// DisableBindValidation 关闭默认的验证器。
 func DisableBindValidation() {
 	binding.Validator = nil
 }
 
-// EnableJsonDecoderUseNumber sets true for binding.EnableDecoderUseNumber to
-// call the UseNumber method on the JSON Decoder instance.
+// EnableJsonDecoderUseNumber 设置 binding.EnableDecoderUseNumber 为 true，
+// 从而在 JSON Decoder 实例上调用 UseNumber 方法。
 func EnableJsonDecoderUseNumber() {
 	binding.EnableDecoderUseNumber = true
 }
 
-// EnableJsonDecoderDisallowUnknownFields sets true for binding.EnableDecoderDisallowUnknownFields to
-// call the DisallowUnknownFields method on the JSON Decoder instance.
+// EnableJsonDecoderDisallowUnknownFields 设置 binding.EnableDecoderDisallowUnknownFields 为 true，
+// 从而在 JSON Decoder 实例上调用 DisallowUnknownFields 方法。
 func EnableJsonDecoderDisallowUnknownFields() {
 	binding.EnableDecoderDisallowUnknownFields = true
 }
 
-// Mode returns current gin mode.
+// Mode 返回当前的 gin 模式。
 func Mode() string {
 	return modeName.Load().(string)
 }

@@ -56,6 +56,7 @@ type methodTree struct {
 
 type methodTrees []methodTree
 
+// get 返回给定HTTP方法的节点。
 func (trees methodTrees) get(method string) *node {
 	for _, tree := range trees {
 		if tree.method == method {
@@ -65,6 +66,7 @@ func (trees methodTrees) get(method string) *node {
 	return nil
 }
 
+// longestCommonPrefix 返回a和b的最长公共前缀长度。
 func longestCommonPrefix(a, b string) int {
 	i := 0
 	max_ := min(len(a), len(b))
@@ -107,14 +109,19 @@ const (
 )
 
 type node struct {
-	path      string
+	path      string // 节点路径
 	indices   string
-	wildChild bool
-	nType     nodeType
-	priority  uint32
-	children  []*node // child nodes, at most 1 :param style node at the end of the array
-	handlers  HandlersChain
-	fullPath  string
+	wildChild bool // 节点是否是参数节点
+	// 节点类型，包括static, root, param, catchAll
+	// 	static: 静态节点
+	// 	root: 树的根节点
+	// 	catchAll: 有*匹配的节点
+	// 	param: 参数节点
+	nType    nodeType
+	priority uint32        // 优先级，子节点注册的handler数量
+	children []*node       // 子节点数组，最多包含一个 :param 风格的节点，且位于数组的末尾
+	handlers HandlersChain // 路由对应的handler函数
+	fullPath string        // 完整节点路径，比如上面的
 }
 
 // incrementChildPrio 增加给定子节点的优先级，并在必要时重新排序
@@ -140,29 +147,29 @@ func (n *node) incrementChildPrio(pos int) int {
 	return newPos
 }
 
-// addRoute 添加一个具有给定处理器的节点到路径。
+// addRoute 添加一个具有给定处理器的节点到路径(默克尔压缩前缀树)。
 // 不支持并发安全！
 func (n *node) addRoute(path string, handlers HandlersChain) {
-	fullPath := path
-	n.priority++
+	fullPath := path // 完整路径
+	n.priority++     // 每有一个新路由经过此节点，priority 都要加 1
 
-	// 空树
+	// 加入当前节点为 root 且未注册过子节点，则直接插入并返回
 	if len(n.path) == 0 && len(n.children) == 0 {
 		n.insertChild(path, fullPath, handlers)
-		n.nType = root
+		n.nType = root // 设置节点类型为根节点
 		return
 	}
 
-	parentFullPathIndex := 0
+	parentFullPathIndex := 0 // 父节点完整路径的索引
 
-walk:
+walk: // 外层 for 循环断点
 	for {
 		// 找到最长的公共前缀。
 		// 这也意味着公共前缀不包含 ':' 或 '*'，因为现有的键不能包含这些字符。
 		i := longestCommonPrefix(path, n.path)
 
 		// 分割边缘
-		if i < len(n.path) {
+		if i < len(n.path) { // 如果公共前缀的长度小于节点路径的长度，则创建一个子节点
 			child := node{
 				path:      n.path[i:],
 				wildChild: n.wildChild,
@@ -308,36 +315,50 @@ func findWildcard(path string) (wildcard string, i int, valid bool) {
 	return "", -1, false
 }
 
+// insertChild 向本树中插入子节点
+//
+//	path: 待插入节点的路径 eg: /a/b/:c/:d
+//	fullPath: 完整路径 eg: /a/b/:c/:d
+//	handlers: 处理函数
+//	处理后的链路: node{path:/a/b/ wildChild:true nType:1 priority:1 fullPath: children:[]*node{
+//		{path::c wildChild:false nType:2 priority:1 fullPath:/a/b/:c/:d children:[]*node{
+//			{path:/ wildChild:true nType:0 priority:1 fullPath:/a/b/:c/:d children:[]*node{
+//				{path::d wildChild:false nType:2 priority:1 fullPath:/a/b/:c/:d children:nil handlers:[func1 func2]}
+//			}
+//		}
+//	}
 func (n *node) insertChild(path string, fullPath string, handlers HandlersChain) {
 	for {
 		// 查找前缀直到第一个通配符
+		// step1 path:[/a/b/:c/:d] => wildcard:[:c], i:[5], valid:[true]
+		// step2 path:[/:d] => wildcard:[:d], i:[1], valid:[true]
 		wildcard, i, valid := findWildcard(path)
-		if i < 0 { // 没有找到通配符
+		if i < 0 { // 没有找到通配符则退出循环
 			break
 		}
 
-		// 通配符名称只能包含一个 ':' 或 '*' 字符
+		// 通配符名称只能包含一个 ':' 或 '*' 字符，否则抛出此异常
 		if !valid {
 			panic("only one wildcard per path segment is allowed, has: '" +
 				wildcard + "' in path '" + fullPath + "'")
 		}
 
-		// 检查通配符是否有名称
+		// 检查通配符是否有名称，若仅有一个 ':' 或 '*' 字符，则抛出此异常，必须包含通配符字符的名称
 		if len(wildcard) < 2 {
 			panic("wildcards must be named with a non-empty name in path '" + fullPath + "'")
 		}
 
-		if wildcard[0] == ':' { // 参数
-			if i > 0 {
+		if wildcard[0] == ':' { // 若是参数通配符则插入参数节点，path:[/a/b/:c/:d]
+			if i > 0 { // step1:[i:5] step2:[i:1]
 				// 在当前通配符之前插入前缀
-				n.path = path[:i]
-				path = path[i:]
+				n.path = path[:i] // step1:[/a/b/] step2:[/]
+				path = path[i:]   // step1:[:c/:d] step2:[:d]
 			}
 
 			child := &node{
 				nType:    param,
-				path:     wildcard,
-				fullPath: fullPath,
+				path:     wildcard, // step1:[:c] step2:[:d]
+				fullPath: fullPath, // /a/b/:c/:d
 			}
 			n.addChild(child)
 			n.wildChild = true
@@ -346,11 +367,11 @@ func (n *node) insertChild(path string, fullPath string, handlers HandlersChain)
 
 			// 如果路径没有以通配符结束，则会有另一个以 '/' 开头的子路径
 			if len(wildcard) < len(path) {
-				path = path[len(wildcard):]
+				path = path[len(wildcard):] // step1:[/:d]
 
 				child := &node{
 					priority: 1,
-					fullPath: fullPath,
+					fullPath: fullPath, // /a/b/:c/:d
 				}
 				n.addChild(child)
 				n = child

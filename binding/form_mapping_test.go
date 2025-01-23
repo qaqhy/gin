@@ -7,6 +7,7 @@ package binding
 import (
 	"encoding/hex"
 	"errors"
+	"fmt"
 	"mime/multipart"
 	"reflect"
 	"strconv"
@@ -184,10 +185,10 @@ func TestMapFormWithTag(t *testing.T) {
 func TestMappingTime(t *testing.T) {
 	var s struct {
 		Time      time.Time
-		LocalTime time.Time `time_format:"2006-01-02"`
+		LocalTime time.Time `time_format:"2006-01-02 15:04:05"`
 		ZeroValue time.Time
 		CSTTime   time.Time `time_format:"2006-01-02" time_location:"Asia/Shanghai"`
-		UTCTime   time.Time `time_format:"2006-01-02" time_utc:"1"`
+		UTCTime   time.Time `time_format:"2006-01-02 15:04:05" time_utc:"1"`
 	}
 
 	var err error
@@ -196,20 +197,21 @@ func TestMappingTime(t *testing.T) {
 
 	err = mapForm(&s, map[string][]string{
 		"Time":      {"2019-01-20T16:02:58Z"},
-		"LocalTime": {"2019-01-20"},
+		"LocalTime": {"2019-01-20 16:02:58"},
 		"ZeroValue": {},
 		"CSTTime":   {"2019-01-20"},
-		"UTCTime":   {"2019-01-20"},
+		"UTCTime":   {"2019-01-20 16:02:58"},
 	})
 	require.NoError(t, err)
 
+	fmt.Println(s.UTCTime.Format(time.DateTime))
 	assert.Equal(t, "2019-01-20 16:02:58 +0000 UTC", s.Time.String())
-	assert.Equal(t, "2019-01-20 00:00:00 +0100 CET", s.LocalTime.String())
-	assert.Equal(t, "2019-01-19 23:00:00 +0000 UTC", s.LocalTime.UTC().String())
+	assert.Equal(t, "2019-01-20 16:02:58 +0100 CET", s.LocalTime.String())
+	assert.Equal(t, "2019-01-20 15:02:58 +0000 UTC", s.LocalTime.UTC().String())
 	assert.Equal(t, "0001-01-01 00:00:00 +0000 UTC", s.ZeroValue.String())
 	assert.Equal(t, "2019-01-20 00:00:00 +0800 CST", s.CSTTime.String())
 	assert.Equal(t, "2019-01-19 16:00:00 +0000 UTC", s.CSTTime.UTC().String())
-	assert.Equal(t, "2019-01-20 00:00:00 +0000 UTC", s.UTCTime.String())
+	assert.Equal(t, "2019-01-20 16:02:58 +0000 UTC", s.UTCTime.String())
 
 	// wrong location
 	var wrongLoc struct {

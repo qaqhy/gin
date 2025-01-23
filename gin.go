@@ -333,12 +333,12 @@ func (engine *Engine) addRoute(method, path string, handlers HandlersChain) {
 	debugPrintRoute(method, path, handlers)
 
 	root := engine.trees.get(method)
-	if root == nil {
+	if root == nil { // 如果该方法还没有注册过路由，则创建一个根节点
 		root = new(node)
 		root.fullPath = "/"
-		engine.trees = append(engine.trees, methodTree{method: method, root: root})
+		engine.trees = append(engine.trees, methodTree{method: method, root: root}) // 添加到路由树中
 	}
-	root.addRoute(path, handlers)
+	root.addRoute(path, handlers) // 添加路由和对应的处理函数
 
 	if paramsCount := countParams(path); paramsCount > engine.maxParams {
 		engine.maxParams = paramsCount

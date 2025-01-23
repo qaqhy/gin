@@ -111,7 +111,7 @@ const (
 type node struct {
 	path      string // 节点路径
 	indices   string
-	wildChild bool // 节点是否是参数节点
+	wildChild bool // 是否包含通配符子节点
 	// 节点类型，包括static, root, param, catchAll
 	// 	static: 静态节点
 	// 	root: 树的根节点

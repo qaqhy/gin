@@ -160,6 +160,7 @@ func (n *node) addRoute(path string, handlers HandlersChain) {
 		return
 	}
 
+	// 如果不是空树，已经有注册过路由，开始处理添加，合并路由
 	parentFullPathIndex := 0 // 父节点完整路径的索引
 
 walk: // 外层 for 循环断点
@@ -168,7 +169,8 @@ walk: // 外层 for 循环断点
 		// 这也意味着公共前缀不包含 ':' 或 '*'，因为现有的键不能包含这些字符。
 		i := longestCommonPrefix(path, n.path)
 
-		// 分割边缘
+		// 如果相同前缀的索引小于当前节点的路由，说明有相同前缀但是不完全相同，当前节点需要分裂节点，且 i 至少为 1，因为路由会有 '/'
+		// 将相同前缀部分作为当前节点的路由，将相同前缀后的部分作为子节点路由
 		if i < len(n.path) { // 如果公共前缀的长度小于节点路径的长度，则创建一个子节点
 			child := node{
 				path:      n.path[i:],
@@ -184,17 +186,21 @@ walk: // 外层 for 循环断点
 			n.children = []*node{&child}
 			// []byte用于正确的Unicode字符转换，见#65
 			n.indices = bytesconv.BytesToString([]byte{n.path[i]})
-			n.path = path[:i]
+			n.path = path[:i] // 重新设置欲添加路由为相同前缀的部分
 			n.handlers = nil
 			n.wildChild = false
-			n.fullPath = fullPath[:parentFullPathIndex+i]
+			n.fullPath = fullPath[:parentFullPathIndex+i] // 父节点的fullPath设置为公共路径
 		}
 
-		// 使新节点成为此节点的子节点
+		// 如果相同前缀的索引小于欲添加路由的长度，说明这个路由需要截取相同前缀后部分的路由作为节点的子节点
+		// 如果等于则说明欲添加节点的路由已经被这两个节点的相同前缀覆盖，则直接标记当前节点为已路由节点
 		if i < len(path) {
 			path = path[i:]
 			c := path[0]
 
+			// 相同前缀后部分为欲添加路由
+			// 处理 :param 通配符后跟着 '/' 的情况
+			// eg [:param/11] & [:param/12]
 			// 参数后的 '/'
 			if n.nType == param && c == '/' && len(n.children) == 1 {
 				parentFullPathIndex += len(n.path)
@@ -402,9 +408,9 @@ func (n *node) insertChild(path string, fullPath string, handlers HandlersChain)
 				"'")
 		}
 
-		// 目前固定宽度为 1 的 '/'
+		// 使用 *param 通配符必须有 '/'
 		i--
-		if i < 0 || path[i] != '/' { // /a*b的路由报错
+		if i < 0 || path[i] != '/' { // /a*b的路由会抛出异常
 			panic("no / before catch-all in path '" + fullPath + "'")
 		}
 

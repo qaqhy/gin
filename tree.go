@@ -389,6 +389,7 @@ func (n *node) insertChild(path string, fullPath string, handlers HandlersChain)
 		}
 
 		// 如果节点上还有其他子节点，说明已经有其他 api 注册，则不能使用 *param 通配符
+		// eg: /a/b/*cmm注册后/a/*xx路径不允许注册
 		if len(n.path) > 0 && n.path[len(n.path)-1] == '/' {
 			pathSeg := ""
 			if len(n.children) != 0 {

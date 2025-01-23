@@ -384,10 +384,11 @@ func (n *node) insertChild(path string, fullPath string, handlers HandlersChain)
 		}
 
 		// 全捕获
-		if i+len(wildcard) != len(path) {
+		if i+len(wildcard) != len(path) { // *param 必须在路径的最后
 			panic("catch-all routes are only allowed at the end of the path in path '" + fullPath + "'")
 		}
 
+		// 如果节点上还有其他子节点，说明已经有其他 api 注册，则不能使用 *param 通配符
 		if len(n.path) > 0 && n.path[len(n.path)-1] == '/' {
 			pathSeg := ""
 			if len(n.children) != 0 {
